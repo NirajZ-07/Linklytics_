@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 
 import Card from "./Card";
+import ShortenPopUp from "./dashboard/ShortenPopUp";
 import { useStoreContext } from "../contextApi/ContextApi";
 
 let desc =
@@ -11,9 +13,31 @@ let desc =
 const LandingPage = () => {
   const navigate = useNavigate();
   const { token } = useStoreContext();
-  console.log("TOKEN FROM LANDING PAGE: " + token);
+  const queryClient = useQueryClient();
+  const [shortenPopUp, setShortenPopUp] = useState(false);
 
-  const dashBoardNavigateHandler = () => {};
+  // "Manage Links": dashboard if logged in, otherwise login page.
+  const manageLinksHandler = () => {
+    navigate(token ? "/dashboard" : "/login");
+  };
+
+  // "Create Short Link": open the same popup the dashboard uses if logged in,
+  // otherwise send the user to the login page.
+  const createShortLinkHandler = () => {
+    if (token) {
+      setShortenPopUp(true);
+    } else {
+      navigate("/login");
+    }
+  };
+
+  // After a link is created here, mark the dashboard's cached data as stale
+  // so the new link (and its clicks) show up when the user opens the dashboard.
+  const refreshDashboardData = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["my-shortenurls"] }),
+      queryClient.invalidateQueries({ queryKey: ["url-totalclick"] }),
+    ]);
   return (
     <div className="min-h-[calc(100vh-64px)]  lg:px-14 sm:px-8 px-4">
       <div className="lg:flex-row flex-col    lg:py-5   pt-16   lg:gap-10 gap-8 flex justify-between items-center">
@@ -45,7 +69,7 @@ const LandingPage = () => {
               }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              onClick={dashBoardNavigateHandler}
+              onClick={manageLinksHandler}
               className="bg-gradient-to-r from-blue-500 to-purple-500  w-40 text-white rounded-md  py-2"
             >
               Manage Links
@@ -58,7 +82,7 @@ const LandingPage = () => {
               }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              onClick={dashBoardNavigateHandler}
+              onClick={createShortLinkHandler}
               className="border-btnColor border w-40 text-btnColor rounded-md  py-2 "
             >
               Create Short Link
@@ -112,6 +136,12 @@ const LandingPage = () => {
           />
         </div>
       </div>
+
+      <ShortenPopUp
+        refetch={refreshDashboardData}
+        open={shortenPopUp}
+        setOpen={setShortenPopUp}
+      />
     </div>
   );
 };
